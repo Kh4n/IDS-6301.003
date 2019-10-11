@@ -4,8 +4,7 @@ import numpy as np
 import pandas as pd
 import cust_datagen
 
-CSV_FOLDER_PATH = "/mnt/CSE-CIC-2018/Processed Traffic Data for ML Algorithms/"
-CSV_COMBINED = CSV_FOLDER_PATH + "combined.out"
+CSV_COMBINED = <ENTER PATH TO combined.out HERE>
 
 inputs = keras.Input(shape=(76), name='in')
 x = layers.Dense(64, activation='relu')(inputs)
