@@ -105,3 +105,6 @@ venv.bak/
 
 #Vscode
 .vscode
+
+#personal
+clean_data.py
