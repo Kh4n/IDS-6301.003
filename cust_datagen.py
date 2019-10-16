@@ -3,6 +3,8 @@ from tensorflow.keras import layers
 import numpy as np
 import pandas as pd
 import psutil
+import random
+import sys
 
 norm_cols = {
     'Dst Port': [0, 65535],
@@ -87,7 +89,9 @@ norm_cols = {
 
 def handle_nan_inf(s):
     if s == "Infinity":
-        return float("inf")
+        return 0
+    elif s == "NaN":
+        return 0
     else:
         return float(s)
 
@@ -104,6 +108,8 @@ class IDSDataGeneratorBasic(keras.utils.Sequence):
         self.dims = input_dims
 
         self.steps_per_epoch = steps_per_epoch
+        self.fsize = rawcount(self.combined_csv)
+        self.on_epoch_end()
 
     def __len__(self):
         'Denotes the number of batches per epoch'
@@ -114,15 +120,21 @@ class IDSDataGeneratorBasic(keras.utils.Sequence):
         # Generate indexes of the batch
         # indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
 
-        df = pd.read_csv(self.combined_csv, sep=',', skiprows=range(1,index*self.batch_size), nrows=self.batch_size, converters=converters)
+        df = pd.read_csv(self.combined_csv, sep=',', skiprows=range(self.rand_offset,(index+1)*self.batch_size), nrows=self.batch_size, converters=converters)
         for c in norm_cols:
-            df[c] = (df[c] - norm_cols[c][0])/(norm_cols[c][1]-norm_cols[c][0])
+            if norm_cols[c][1]-norm_cols[c][0] > 0:
+                df[c] = (df[c] - norm_cols[c][0])/(norm_cols[c][1]-norm_cols[c][0])
 
         x = df.iloc[:,3:-1].values
         y = df["Label"].apply(lambda s: 0 if s=="Benign" else 1)
-        y = keras.utils.to_categorical(y, num_classes=len(self.classes))
+        # y = keras.utils.to_categorical(y, num_classes=len(self.classes))
 
-        return x.astype(np.float), y
+        return x.astype(np.float32), y
+
+    def on_epoch_end(self):
+        avail_shift = self.fsize - self.steps_per_epoch*self.batch_size
+        self.rand_offset = random.randint(1, avail_shift)
+        # print(avail_shift, self.rand_offset)
 
 class IDSDataGeneratorAttention(keras.utils.Sequence):
     'Generates data for Keras'
@@ -134,6 +146,8 @@ class IDSDataGeneratorAttention(keras.utils.Sequence):
         self.dims = input_dims
 
         self.steps_per_epoch = steps_per_epoch
+        self.fsize = rawcount(self.combined_csv)
+        self.on_epoch_end()
 
     def __len__(self):
         'Denotes the number of batches per epoch'
@@ -145,13 +159,32 @@ class IDSDataGeneratorAttention(keras.utils.Sequence):
         # indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
 
         group_size = self.batch_size*self.dims[0]
-        df = pd.read_csv(self.combined_csv, sep=',', skiprows=range(1,index*group_size), nrows=group_size, converters=converters)
+        df = pd.read_csv(self.combined_csv, sep=',', skiprows=range(self.rand_offset,(index+1)*self.batch_size), nrows=group_size, converters=converters)
         for c in norm_cols:
-            df[c] = (df[c] - norm_cols[c][0])/(norm_cols[c][1]-norm_cols[c][0])
+            if norm_cols[c][1]-norm_cols[c][0] > 0:
+                df[c] = (df[c] - norm_cols[c][0])/(norm_cols[c][1]-norm_cols[c][0])
 
         x = np.reshape(df.iloc[:,3:-1].values, [self.batch_size, *self.dims]) 
-        y = [0 if k==["Benign"] else 1 for k in df.iloc["Label"].values.tolist()[self.dims[0]-1::self.dims[0]]]
-        y = np.reshape(keras.utils.to_categorical(y, num_classes=len(self.classes)), [self.batch_size, self.dims[0]*len(self.classes)])
+        y = df["Label"].apply(lambda s: 0 if s=="Benign" else 1)[self.dims[0]-1::self.dims[0]]
+        # y = keras.utils.to_categorical(y, num_classes=2)
 
-        return x.astype(np.float), y
+        return x.astype(np.float32), y
+    
+    def on_epoch_end(self):
+        avail_shift = self.fsize - self.steps_per_epoch*self.batch_size*self.dims[0]
+        self.rand_offset = random.randint(1, avail_shift)
+        # print(avail_shift, self.rand_offset)
+
         
+def rawcount(filename):
+    f = open(filename, 'rb')
+    lines = 0
+    buf_size = 1024 * 1024
+    read_f = f.raw.read
+
+    buf = read_f(buf_size)
+    while buf:
+        lines += buf.count(b'\n')
+        buf = read_f(buf_size)
+
+    return lines
