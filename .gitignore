@@ -111,3 +111,5 @@ clean_data.py
 pathconfig.cfg
 combined_train
 combined_val
+tensorflow-cpu
+tensorflow-gpu

@@ -55,7 +55,7 @@ steps_per_epoch = 100
 batch_size = 1024
 
 gen = cd.IDSDataGeneratorBasic({"Benign": 0, "Malicious": 1}, CSV_TRAIN, (76), steps_per_epoch, batch_size=batch_size)
-vgen = cd.IDSDataGeneratorBasic({"Benign": 0, "Malicious": 1}, CSV_VALIDATION, (76), steps_per_epoch//100, batch_size=batch_size)
+vgen = cd.IDSDataGeneratorBasic({"Benign": 0, "Malicious": 1}, CSV_VALIDATION, (76), steps_per_epoch//10, batch_size=batch_size)
 
 model.compile(loss='binary_crossentropy',
               optimizer=keras.optimizers.RMSprop(lr=0.001),
