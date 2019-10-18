@@ -32,7 +32,7 @@ combined_h5 = h5py.File(H5_COMBINED, 'r')
 # print("complete")
 # exit(0)
 
-attention_window = 128
+attention_window = 32
 columns = list(range(3,79))
 dims = (attention_window, len(columns))
 
@@ -41,27 +41,27 @@ inputs = layers.Input(shape=dims, name='in')
 at = layers.Flatten()(inputs)
 
 at = layers.Dense(256)(at)
-at = layers.Dropout(0.4)(at)
-at = layers.Activation("relu")(at)
+# at = layers.Dropout(0.4)(at)
+at = layers.Activation("tanh")(at)
 # at = layers.BatchNormalization()(at)
 
 at = layers.Dense(128)(at)
-at = layers.Dropout(0.4)(at)
-at = layers.Activation("relu")(at)
+# at = layers.Dropout(0.4)(at)
+at = layers.Activation("tanh")(at)
 # at = layers.BatchNormalization()(at)
 
 at = layers.Dense(128)(at)
-at = layers.Dropout(0.4)(at)
-at = layers.Activation("relu")(at)
+# at = layers.Dropout(0.4)(at)
+at = layers.Activation("tanh")(at)
 # at = layers.BatchNormalization()(at)
 
 at = layers.Dense(64)(at)
 at = layers.Dropout(0.4)(at)
-at = layers.Activation("relu")(at)
+at = layers.Activation("tanh")(at)
 # at = layers.BatchNormalization()(at)
 
 at = layers.Dense(dims[0])(at)
-# at = layers.Activation("relu")(at)
+at = layers.Activation("sigmoid")(at)
 
 at = am.WeightedAverageAttention()([inputs, at])
 at = layers.Activation("relu")(at)

@@ -187,7 +187,7 @@ class IDSDataGeneratorAttentionH5(keras.utils.Sequence):
         self.y_true = combined_h5["combined"][data_range[0]:data_range[1], -1]
 
         if steps_per_epoch is None:
-            self.steps_per_epoch = (self.data_range[1]-self.data_range[0]) // (batch_size*attention_window)
+            self.steps_per_epoch = (self.data_range[1]-self.data_range[0] - batch_size*attention_window) // (batch_size)
         else:
             self.steps_per_epoch = steps_per_epoch
         self.batch_size = batch_size
@@ -199,21 +199,23 @@ class IDSDataGeneratorAttentionH5(keras.utils.Sequence):
 
     def __getitem__(self, index):
         'Generate one batch of data'
+        shift = index // self.attention_window
+        index = index % self.attention_window
 
         minmaxes = self.combined_h5["minmaxes"][self.columns,1] - self.combined_h5["minmaxes"][self.columns,0]
         minmaxes[minmaxes == 0] = 1
         batch_len = self.batch_size*self.attention_window
-        batch = self.data[index*batch_len:(index+1)*batch_len]/minmaxes
+        batch = self.data[shift+index*batch_len:shift+(index+1)*batch_len]/minmaxes
 
         x = np.reshape(batch, [self.batch_size, self.attention_window, len(self.columns)]) 
-        y = self.y_true[index*batch_len:(index+1)*batch_len]
+        y = self.y_true[shift+index*batch_len:shift+(index+1)*batch_len]
         y = y[self.attention_window-1::self.attention_window]
         # y = keras.utils.to_categorical(y, num_classes=2)
 
         return x.astype(self.float_type), y.astype(self.float_type)
     
     @classmethod
-    def create_data_generators(cls, combined_h5, attention_window, columns, val_split, steps_per_epoch=None, batch_size=32, float_type=np.float64):
+    def create_data_generators(cls, combined_h5, attention_window, columns, val_split, steps_per_epoch=None, batch_size=32, float_type=np.float32):
         tot_rows = len(combined_h5["combined"])
         train_split = 1-val_split
         data_range = [0,int(train_split*tot_rows)]
