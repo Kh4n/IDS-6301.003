@@ -5,6 +5,7 @@ import pandas as pd
 import psutil
 import random
 import sys
+import utils
 
 norm_cols = {
     'Dst Port': [0, 65535],
@@ -108,7 +109,7 @@ class IDSDataGeneratorBasic(keras.utils.Sequence):
         self.dims = input_dims
 
         self.steps_per_epoch = steps_per_epoch
-        self.fsize = rawcount(self.combined_csv)
+        self.fsize = utils.rawcount(self.combined_csv)
         self.on_epoch_end()
 
     def __len__(self):
@@ -129,7 +130,7 @@ class IDSDataGeneratorBasic(keras.utils.Sequence):
         y = df["Label"].apply(lambda s: 0 if s=="Benign" else 1)
         # y = keras.utils.to_categorical(y, num_classes=len(self.classes))
 
-        return x.astype(np.float32), y
+        return x.astype(np.float64), y
 
     def on_epoch_end(self):
         avail_shift = self.fsize - self.steps_per_epoch*self.batch_size
@@ -146,7 +147,7 @@ class IDSDataGeneratorAttention(keras.utils.Sequence):
         self.dims = input_dims
 
         self.steps_per_epoch = steps_per_epoch
-        self.fsize = rawcount(self.combined_csv)
+        self.fsize = utils.rawcount(self.combined_csv)
         self.on_epoch_end()
 
     def __len__(self):
@@ -159,7 +160,7 @@ class IDSDataGeneratorAttention(keras.utils.Sequence):
         # indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
 
         group_size = self.batch_size*self.dims[0]
-        df = pd.read_csv(self.combined_csv, sep=',', skiprows=range(self.rand_offset,(index+1)*self.batch_size), nrows=group_size, converters=converters)
+        df = pd.read_csv(self.combined_csv, sep=',', skiprows=range(self.rand_offset,(index+1)*group_size), nrows=group_size, converters=converters)
         for c in norm_cols:
             if norm_cols[c][1]-norm_cols[c][0] > 0:
                 df[c] = (df[c] - norm_cols[c][0])/(norm_cols[c][1]-norm_cols[c][0])
@@ -168,23 +169,56 @@ class IDSDataGeneratorAttention(keras.utils.Sequence):
         y = df["Label"].apply(lambda s: 0 if s=="Benign" else 1)[self.dims[0]-1::self.dims[0]]
         # y = keras.utils.to_categorical(y, num_classes=2)
 
-        return x.astype(np.float32), y
+        return x.astype(np.float64), y.astype(np.float64)
     
     def on_epoch_end(self):
         avail_shift = self.fsize - self.steps_per_epoch*self.batch_size*self.dims[0]
         self.rand_offset = random.randint(1, avail_shift)
-        # print(avail_shift, self.rand_offset)
 
-        
-def rawcount(filename):
-    f = open(filename, 'rb')
-    lines = 0
-    buf_size = 1024 * 1024
-    read_f = f.raw.read
+class IDSDataGeneratorAttentionH5(keras.utils.Sequence):
+    'Generates data for Keras'
+    def __init__(self, combined_h5, attention_window, columns, data_range, steps_per_epoch=None, batch_size=32, float_type=np.float64):
+        'Initialization'
+        self.combined_h5 = combined_h5
+        self.attention_window = attention_window
+        self.columns = columns
+        self.data_range = data_range
+        self.data = combined_h5["combined"][data_range[0]:data_range[1], 3:-1]
+        self.y_true = combined_h5["combined"][data_range[0]:data_range[1], -1]
 
-    buf = read_f(buf_size)
-    while buf:
-        lines += buf.count(b'\n')
-        buf = read_f(buf_size)
+        if steps_per_epoch is None:
+            self.steps_per_epoch = (self.data_range[1]-self.data_range[0]) // (batch_size*attention_window)
+        else:
+            self.steps_per_epoch = steps_per_epoch
+        self.batch_size = batch_size
+        self.float_type = float_type
 
-    return lines
+    def __len__(self):
+        'Denotes the number of batches per epoch'
+        return self.steps_per_epoch
+
+    def __getitem__(self, index):
+        'Generate one batch of data'
+
+        minmaxes = self.combined_h5["minmaxes"][self.columns,1] - self.combined_h5["minmaxes"][self.columns,0]
+        minmaxes[minmaxes == 0] = 1
+        batch_len = self.batch_size*self.attention_window
+        batch = self.data[index*batch_len:(index+1)*batch_len]/minmaxes
+
+        x = np.reshape(batch, [self.batch_size, self.attention_window, len(self.columns)]) 
+        y = self.y_true[index*batch_len:(index+1)*batch_len]
+        y = y[self.attention_window-1::self.attention_window]
+        # y = keras.utils.to_categorical(y, num_classes=2)
+
+        return x.astype(self.float_type), y.astype(self.float_type)
+    
+    @classmethod
+    def create_data_generators(cls, combined_h5, attention_window, columns, val_split, steps_per_epoch=None, batch_size=32, float_type=np.float64):
+        tot_rows = len(combined_h5["combined"])
+        train_split = 1-val_split
+        data_range = [0,int(train_split*tot_rows)]
+        train_gen = cls(combined_h5, attention_window, columns, data_range, steps_per_epoch=steps_per_epoch, batch_size=batch_size, float_type=float_type)
+        data_range = [int(train_split*tot_rows), tot_rows]
+        val_gen = cls(combined_h5, attention_window, columns, data_range, steps_per_epoch=steps_per_epoch, batch_size=batch_size, float_type=float_type)
+        return (train_gen, val_gen)
+

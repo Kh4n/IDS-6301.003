@@ -108,3 +108,5 @@ venv.bak/
 
 #personal
 clean_data.py
+tensorflow-cpu
+tensorflow-gpu
