@@ -8,8 +8,9 @@ import attention_models as am
 
 
 # CHANGE THESE PATHS
-CSV_TRAIN = "/mnt/CSE-CIC-2018/Processed Traffic Data for ML Algorithms/combined_train_seq"
-CSV_VALIDATION = "/mnt/CSE-CIC-2018/Processed Traffic Data for ML Algorithms/combined_val_seq"
+paths = open("pathconfig.cfg","r").read().split("\n")
+CSV_TRAIN = paths[0]
+CSV_VALIDATION = paths[1]
 
 dims = (32, 76)
 

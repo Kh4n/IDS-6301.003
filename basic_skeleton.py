@@ -6,8 +6,9 @@ import tensorflow as tf
 import cust_datagen as cd
 
 # CHANGE THESE PATHS
-CSV_TRAIN = "/mnt/CSE-CIC-2018/Processed Traffic Data for ML Algorithms/combined_train"
-CSV_VALIDATION = "/mnt/CSE-CIC-2018/Processed Traffic Data for ML Algorithms/combined_val"
+paths = open("pathconfig.cfg","r").read().split("\n")
+CSV_TRAIN = paths[0]
+CSV_VALIDATION = paths[1]
 
 # dims = (30, 76)
 # batch_size = 3

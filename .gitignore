@@ -108,3 +108,6 @@ venv.bak/
 
 #personal
 clean_data.py
+pathconfig.cfg
+combined_train
+combined_val
