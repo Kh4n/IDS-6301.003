@@ -4,34 +4,45 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 import cust_datagen as cd
+import utils
+import h5py
+import os, shutil
+
+logdir_name = "logs_dnn"
+if os.path.isdir(logdir_name):
+    shutil.rmtree(logdir_name)
 
 # CHANGE THESE PATHS
 CSV_TRAIN = "/mnt/CSE-CIC-2018/Processed Traffic Data for ML Algorithms/combined_train"
 CSV_VALIDATION = "/mnt/CSE-CIC-2018/Processed Traffic Data for ML Algorithms/combined_val"
 
-# dims = (30, 76)
-# batch_size = 3
-# group_size = batch_size*dims[0]
-# df = pd.read_csv(CSV_TRAIN, sep=',', skiprows=range(1,1*group_size), nrows=group_size, converters=cd.converters)
-# for c in cd.norm_cols:
-#     df[c] = (df[c] - cd.norm_cols[c][0])/(cd.norm_cols[c][1]-cd.norm_cols[c][0])
-
-# x = np.reshape(df.iloc[:,3:-1].values, [batch_size, *dims]) 
-# y = df["Label"].apply(lambda s: 0 if s=="Benign" else 1)[dims[0]-1::dims[0]]
-# y = keras.utils.to_categorical(y, num_classes=2)
-
-# print(df["Label"])
-# print(x.shape)
-# print(y)
-# exit(0)
+H5_COMBINED = "/mnt/CSE-CIC-2018/Processed Traffic Data for ML Algorithms/combined.hdf5"
+combined_h5 = h5py.File(H5_COMBINED, 'r')
 
 # links to combined train/val data (IF YOU GET ANY ERRORS REDOWNLOAD THE DATA):
 # https://drive.google.com/file/d/11yVYZgVJE2zgGkPPzuSOO06MqTNCRDVV/view?usp=sharing
 # https://drive.google.com/file/d/1ZjtGgooqZ0qRd_10MSy7Ds93aS3Z4v7p/view?usp=sharing
 
-inputs = layers.Input(shape=(76), name='in')
+dstport_embedding = 15
+protocol_embedding = 3
+columns = list(range(3,79))
+useless = [i for i,n in enumerate(combined_h5["minmaxes"]) if n[1] - n[0] == 0]
+columns = [k for k in columns if k not in useless]
+print(columns, useless)
+dims = (len(columns))
 
-x = layers.Dense(64)(inputs)
+in_dstport = layers.Input(shape=(1))
+dstport = layers.Embedding(65535+1, dstport_embedding, input_length=1)(in_dstport)
+dstport = layers.Flatten()(dstport)
+
+in_protocol = layers.Input(shape=(1))
+protocol = layers.Embedding(17+1, protocol_embedding, input_length=1)(in_protocol)
+protocol = layers.Flatten()(protocol)
+
+inputs = layers.Input(shape=dims, name='in')
+
+x = layers.Concatenate()([protocol, dstport, inputs])
+x = layers.Dense(64)(x)
 # x = layers.BatchNormalization()(x)
 x = layers.Activation("relu")(x)
 x = layers.Dropout(0.4)(x)
@@ -47,22 +58,28 @@ x = layers.Dropout(0.4)(x)
 
 outputs = layers.Dense(1, activation='sigmoid')(x)
 
-model = keras.Model(inputs=inputs, outputs=outputs, name='ids_model')
-# print(model.summary())
+model = keras.Model(inputs=[in_protocol, in_dstport, inputs], outputs=outputs, name='ids_model')
+print(model.summary())
 
-steps_per_epoch = 100
-batch_size = 1024
+batch_size = 128
 
-gen = cd.IDSDataGeneratorBasic({"Benign": 0, "Malicious": 1}, CSV_TRAIN, (76), steps_per_epoch, batch_size=batch_size)
-vgen = cd.IDSDataGeneratorBasic({"Benign": 0, "Malicious": 1}, CSV_VALIDATION, (76), steps_per_epoch//10, batch_size=batch_size)
+# steps_per_epoch = 100
+# gen = cd.IDSDataGeneratorBasic({"Benign": 0, "Malicious": 1}, CSV_TRAIN, (76), steps_per_epoch, batch_size=batch_size)
+# vgen = cd.IDSDataGeneratorBasic({"Benign": 0, "Malicious": 1}, CSV_VALIDATION, (76), steps_per_epoch//10, batch_size=batch_size)
 
+data = combined_h5["combined"][:]
+gen, vgen = cd.IDSDataGeneratorBasic.create_data_generators(data, combined_h5, columns, 0.2, batch_size=batch_size)
+
+sgd = tf.keras.optimizers.SGD(lr=0.001, decay=1e-6, momentum=0.9, nesterov=True)
 model.compile(loss='binary_crossentropy',
               optimizer=keras.optimizers.RMSprop(lr=0.001),
-              metrics=['accuracy'])
+            #   optimizer=sgd,
+              metrics=['binary_accuracy', utils.true_positive_rate, utils.false_positive_rate])
 
 history = model.fit_generator(
-    gen, epochs=500, validation_data=vgen,# workers=8
+    gen, epochs=500, validation_data=vgen, shuffle=False,
+    callbacks=[tf.keras.callbacks.TensorBoard(log_dir=logdir_name)], workers=8, use_multiprocessing=True
 )
 
-out = model.predict(vgen)
-print(out)
+# out = model.predict(vgen)
+# print(out)

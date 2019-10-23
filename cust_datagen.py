@@ -101,16 +101,16 @@ converters = {"Flow Byts/s": handle_nan_inf, "Flow Pkts/s": handle_nan_inf}
 
 class IDSDataGeneratorBasic(keras.utils.Sequence):
     'Generates data for Keras'
-    def __init__(self, classes, combined_csv, input_dims, steps_per_epoch, batch_size=32):
+    def __init__(self, data, combined_h5, offset, columns, steps_per_epoch, batch_size=32):
         'Initialization'
-        self.batch_size = batch_size
-        self.classes = classes
-        self.combined_csv = combined_csv
-        self.dims = input_dims
-
+        self.combined_h5 = combined_h5
+        self.offset = offset
+        self.columns = columns
+        self.data = data
         self.steps_per_epoch = steps_per_epoch
-        self.fsize = utils.rawcount(self.combined_csv)
-        self.on_epoch_end()
+        self.batch_size = batch_size
+        self.mins = self.combined_h5["minmaxes"][self.columns,0]
+        self.col_ranges = self.combined_h5["minmaxes"][self.columns,1] - self.mins
 
     def __len__(self):
         'Denotes the number of batches per epoch'
@@ -119,79 +119,45 @@ class IDSDataGeneratorBasic(keras.utils.Sequence):
     def __getitem__(self, index):
         'Generate one batch of data'
         # Generate indexes of the batch
-        # indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
 
-        df = pd.read_csv(self.combined_csv, sep=',', skiprows=range(self.rand_offset,(index+1)*self.batch_size), nrows=self.batch_size, converters=converters)
-        for c in norm_cols:
-            if norm_cols[c][1]-norm_cols[c][0] > 0:
-                df[c] = (df[c] - norm_cols[c][0])/(norm_cols[c][1]-norm_cols[c][0])
-
-        x = df.iloc[:,3:-1].values
-        y = df["Label"].apply(lambda s: 0 if s=="Benign" else 1)
+        batch = self.data[self.offset + index*self.batch_size:self.offset + (index+1)*self.batch_size]
+        dstport = batch[:, 0]
+        protocol = batch[:, 1]
+        x = (batch[:, self.columns] - self.mins)/self.col_ranges 
+        y = batch[:, -1]
         # y = keras.utils.to_categorical(y, num_classes=len(self.classes))
 
-        return x.astype(np.float64), y
-
-    def on_epoch_end(self):
-        avail_shift = self.fsize - self.steps_per_epoch*self.batch_size
-        self.rand_offset = random.randint(1, avail_shift)
-        # print(avail_shift, self.rand_offset)
-
-class IDSDataGeneratorAttention(keras.utils.Sequence):
-    'Generates data for Keras'
-    def __init__(self, classes, combined_csv, input_dims, steps_per_epoch, batch_size=32):
-        'Initialization'
-        self.batch_size = batch_size
-        self.classes = classes
-        self.combined_csv = combined_csv
-        self.dims = input_dims
-
-        self.steps_per_epoch = steps_per_epoch
-        self.fsize = utils.rawcount(self.combined_csv)
-        self.on_epoch_end()
-
-    def __len__(self):
-        'Denotes the number of batches per epoch'
-        return self.steps_per_epoch
-
-    def __getitem__(self, index):
-        'Generate one batch of data'
-        # Generate indexes of the batch
-        # indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
-
-        group_size = self.batch_size*self.dims[0]
-        df = pd.read_csv(self.combined_csv, sep=',', skiprows=range(self.rand_offset,(index+1)*group_size), nrows=group_size, converters=converters)
-        for c in norm_cols:
-            if norm_cols[c][1]-norm_cols[c][0] > 0:
-                df[c] = (df[c] - norm_cols[c][0])/(norm_cols[c][1]-norm_cols[c][0])
-
-        x = np.reshape(df.iloc[:,3:-1].values, [self.batch_size, *self.dims]) 
-        y = df["Label"].apply(lambda s: 0 if s=="Benign" else 1)[self.dims[0]-1::self.dims[0]]
-        # y = keras.utils.to_categorical(y, num_classes=2)
-
-        return x.astype(np.float64), y.astype(np.float64)
+        return [protocol, dstport, x], y
     
-    def on_epoch_end(self):
-        avail_shift = self.fsize - self.steps_per_epoch*self.batch_size*self.dims[0]
-        self.rand_offset = random.randint(1, avail_shift)
+    @classmethod
+    def create_data_generators(cls, data, combined_h5, columns, val_split, batch_size=32):
+        np.random.shuffle(data)
+        tot_rows = len(data)
+        train_split = 1-val_split
+        steps_per_epoch = int(train_split*tot_rows)//batch_size
+        train_gen = cls(data, combined_h5, 0, columns, steps_per_epoch, batch_size=batch_size)
+        steps_per_epoch = int(val_split*tot_rows)//batch_size
+        val_gen = cls(data, combined_h5, int(train_split*tot_rows), columns, steps_per_epoch, batch_size=batch_size)
+        return (train_gen, val_gen)
 
 class IDSDataGeneratorAttentionH5(keras.utils.Sequence):
     'Generates data for Keras'
-    def __init__(self, combined_h5, attention_window, columns, data_range, steps_per_epoch=None, batch_size=32, float_type=np.float64):
+    def __init__(self, data, combined_h5, indices, attention_window, columns, steps_per_epoch=None, batch_size=32):
         'Initialization'
         self.combined_h5 = combined_h5
         self.attention_window = attention_window
         self.columns = columns
-        self.data_range = data_range
-        self.data = combined_h5["combined"][data_range[0]:data_range[1], 3:-1]
-        self.y_true = combined_h5["combined"][data_range[0]:data_range[1], -1]
+        self.data = data
+        self.indices = indices
 
         if steps_per_epoch is None:
-            self.steps_per_epoch = (self.data_range[1]-self.data_range[0] - batch_size*attention_window) // (batch_size)
+            self.steps_per_epoch = len(self.indices)//batch_size
         else:
             self.steps_per_epoch = steps_per_epoch
         self.batch_size = batch_size
-        self.float_type = float_type
+        self.mins = self.combined_h5["minmaxes"][self.columns,0]
+        self.col_ranges = self.combined_h5["minmaxes"][self.columns,1] - self.mins
+        self.on_epoch_end()
 
     def __len__(self):
         'Denotes the number of batches per epoch'
@@ -199,28 +165,31 @@ class IDSDataGeneratorAttentionH5(keras.utils.Sequence):
 
     def __getitem__(self, index):
         'Generate one batch of data'
-        shift = index // self.attention_window
-        index = index % self.attention_window
+        cur_indices = np.reshape(
+            [np.arange(k,k+self.attention_window) for k in self.indices[index*self.batch_size:(index+1)*self.batch_size]],
+            self.batch_size*self.attention_window
+        )
+        batch = self.data[cur_indices]
+        protocol = np.reshape(batch[:,1], [self.batch_size, self.attention_window])
+        dstport = np.reshape(batch[:,0], [self.batch_size, self.attention_window])
+        x = np.reshape((batch[:, self.columns]-self.mins)/self.col_ranges, [self.batch_size, self.attention_window, len(self.columns)])
+        y = batch[:, -1]
+        y = np.reshape(y[self.attention_window-1::self.attention_window], [self.batch_size, 1])
+        return [protocol, dstport, x], y
 
-        minmaxes = self.combined_h5["minmaxes"][self.columns,1] - self.combined_h5["minmaxes"][self.columns,0]
-        minmaxes[minmaxes == 0] = 1
-        batch_len = self.batch_size*self.attention_window
-        batch = self.data[shift+index*batch_len:shift+(index+1)*batch_len]/minmaxes
-
-        x = np.reshape(batch, [self.batch_size, self.attention_window, len(self.columns)]) 
-        y = self.y_true[shift+index*batch_len:shift+(index+1)*batch_len]
-        y = y[self.attention_window-1::self.attention_window]
-        # y = keras.utils.to_categorical(y, num_classes=2)
-
-        return x.astype(self.float_type), y.astype(self.float_type)
-    
     @classmethod
-    def create_data_generators(cls, combined_h5, attention_window, columns, val_split, steps_per_epoch=None, batch_size=32, float_type=np.float32):
-        tot_rows = len(combined_h5["combined"])
+    def create_data_generators(cls, data, combined_h5, attention_window, columns, val_split, steps_per_epoch=None, batch_size=32):
+        # tot_rows = int(0.1*len(combined_h5["combined"]))
+        tot_rows = len(data)
         train_split = 1-val_split
-        data_range = [0,int(train_split*tot_rows)]
-        train_gen = cls(combined_h5, attention_window, columns, data_range, steps_per_epoch=steps_per_epoch, batch_size=batch_size, float_type=float_type)
-        data_range = [int(train_split*tot_rows), tot_rows]
-        val_gen = cls(combined_h5, attention_window, columns, data_range, steps_per_epoch=steps_per_epoch, batch_size=batch_size, float_type=float_type)
+        indices = np.arange(0, tot_rows-attention_window)
+        np.random.shuffle(indices)
+        train_gen = cls(data, combined_h5, indices[0:int(train_split*len(indices))], attention_window, columns, steps_per_epoch=steps_per_epoch, batch_size=batch_size)
+        steps_per_epoch = None if steps_per_epoch is None else int(steps_per_epoch*val_split)
+        val_gen = cls(data, combined_h5, indices[int(train_split*len(indices)):], attention_window, columns, steps_per_epoch=steps_per_epoch, batch_size=batch_size)
         return (train_gen, val_gen)
 
+def unison_shuffled_copies(a, b, c):
+    assert len(a) == len(b) == len(c)
+    p = np.random.permutation(len(a))
+    return [a[p], b[p]], b[p]

@@ -11,7 +11,10 @@ class WeightedAverageAttention(tf.keras.layers.Layer):
         weights = inputs[1]
         inputs = inputs[0]
         
-        return tf.reduce_mean(tf.expand_dims(weights, axis=-1)*inputs, axis=-2)
+        # return tf.reduce_mean(tf.expand_dims(weights, axis=-1)*inputs, axis=-2)
+        return tf.reduce_mean(weights*inputs, axis=-2)
+        # the following is more technically correct, but runs the risk of returning NaNs. need a way around this
+        # return tf.reduce_sum(inputs*weights, axis=-2)/tf.reduce_sum(weights, axis=-2)
   
     def compute_output_shape(self, input_shape):
         return input_shape[0][2]

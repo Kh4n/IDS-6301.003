@@ -110,3 +110,4 @@ venv.bak/
 clean_data.py
 tensorflow-cpu
 tensorflow-gpu
+logs*

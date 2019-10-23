@@ -28,7 +28,7 @@ def false_positive_rate(y_true, y_pred):
     tn = tf.math.count_nonzero(tf.logical_and(y_true, y_pred))
     n = tf.math.count_nonzero(y_true)
 
-    return tf.where(tf.math.is_nan(1 - tn/n), tf.cast(1.0, tf.float64), 1 - tn/n)
+    return tf.where(tf.math.is_nan(1 - tn/n), tf.cast(0.0, tf.float64), 1 - tn/n)
 
 def cust_accuracy(y_true, y_pred):
     diff = tf.abs(y_true - y_pred)
