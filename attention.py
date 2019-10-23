@@ -14,11 +14,12 @@ if os.path.isdir(logdir_name):
     shutil.rmtree(logdir_name)
 
 # CHANGE THESE PATHS
-CSV_TRAIN = "/mnt/CSE-CIC-2018/Processed Traffic Data for ML Algorithms/combined_train_seq"
-CSV_VALIDATION = "/mnt/CSE-CIC-2018/Processed Traffic Data for ML Algorithms/combined_val_seq"
+paths = open("pathconfig.cfg","r").read().split("\n")
+CSV_TRAIN = paths[0]
+CSV_VALIDATION = paths[1]
 
 # HDF5 link: https://drive.google.com/file/d/1GeCiqkdh3aqY8MUJztrvhHy-H0Ghd5Jo/view?usp=sharing
-H5_COMBINED = "/mnt/CSE-CIC-2018/Processed Traffic Data for ML Algorithms/combined.hdf5"
+H5_COMBINED = paths[2]
 combined_h5 = h5py.File(H5_COMBINED, 'r')
 
 attention_window = 8
