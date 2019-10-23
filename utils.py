@@ -18,8 +18,8 @@ def true_positive_rate(y_true, y_pred):
     y_pred_bool = tf.equal(tf.round(y_pred), 1)
     tp = tf.cast(tf.math.count_nonzero(tf.logical_and(y_true_bool, y_pred_bool)), tf.float64)
     p = tf.cast(tf.math.count_nonzero(y_true_bool), tf.float64)
-
-    return tf.where(tf.math.is_nan(tp/p), tf.cast(1.0, tf.float64), tp/p)
+    tpr = tp/p
+    return tf.where(tf.math.is_nan(tpr), tf.cast(1.0, tf.float64), tpr)
     # return tp/p
 
 def false_positive_rate(y_true, y_pred):
@@ -27,8 +27,8 @@ def false_positive_rate(y_true, y_pred):
     y_pred = tf.equal(tf.round(y_pred), 0)
     tn = tf.math.count_nonzero(tf.logical_and(y_true, y_pred))
     n = tf.math.count_nonzero(y_true)
-
-    return tf.where(tf.math.is_nan(1 - tn/n), tf.cast(0.0, tf.float64), 1 - tn/n)
+    fpr = 1 - tn/n
+    return tf.where(tf.math.is_nan(fpr), tf.cast(0.0, tf.float64), fpr)
 
 def cust_accuracy(y_true, y_pred):
     diff = tf.abs(y_true - y_pred)

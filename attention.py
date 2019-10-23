@@ -45,20 +45,23 @@ at = layers.TimeDistributed(layers.Dense(32), input_shape=(attention_window, len
 at = layers.TimeDistributed(layers.BatchNormalization())(at)
 at = layers.Activation("relu")(at)
 
-# at = layers.TimeDistributed(layers.Dense(32))(at)
-# at = layers.TimeDistributed(layers.BatchNormalization())(at)
-# at = layers.Activation("relu")(at)
+at = layers.TimeDistributed(layers.Dense(32))(at)
+at = layers.TimeDistributed(layers.BatchNormalization())(at)
+at = layers.Activation("relu")(at)
 
-# at = layers.TimeDistributed(layers.Dense(32))(at)
-# at = layers.TimeDistributed(layers.BatchNormalization())(at)
-# at = layers.Activation("relu")(at)
+at = layers.TimeDistributed(layers.Dense(32))(at)
+at = layers.TimeDistributed(layers.BatchNormalization())(at)
+at = layers.Activation("relu")(at)
 
 
 at = layers.TimeDistributed(layers.Dense(1))(at)
 at = layers.Activation("relu")(at)
 
 
-at = am.WeightedAverageAttention()([inputs, at])
+# at = am.WeightedAverageAttention()([at, inputs])
+at = am.WeightedAttention()([at, inputs])
+at = layers.Flatten()(at)
+at = layers.Activation("relu")(at)
 
 
 x = layers.Dense(64)(at)
@@ -78,7 +81,7 @@ outputs = layers.Dense(1, activation='sigmoid')(x)
 model = tf.keras.Model(inputs=[in_protocol, in_dstport, inputs], outputs=outputs, name='ids_model')
 print(model.summary())
 
-batch_size = 128
+batch_size = 1024
 
 # steps_per_epoch = 100
 # max_val_steps = (utils.rawcount(CSV_VALIDATION) - 1)//(batch_size*dims[0])
