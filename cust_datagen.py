@@ -100,7 +100,7 @@ class IDSDataGeneratorAttentionH5(keras.utils.Sequence):
         val_gen = cls(data, combined_h5, indices[int(train_split*len(indices)):], attention_window, columns, steps_per_epoch=steps_per_epoch, batch_size=batch_size)
         return (train_gen, val_gen)
 
-def unison_shuffled_copies(a, b, c):
-    assert len(a) == len(b) == len(c)
+def unison_shuffled_copies(a, b):
+    assert len(a) == len(b)
     p = np.random.permutation(len(a))
-    return [a[p], b[p]], b[p]
+    return a[p], b[p]

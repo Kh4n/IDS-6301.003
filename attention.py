@@ -40,8 +40,8 @@ protocol = layers.Embedding(17+1, protocol_embedding, input_length=attention_win
 
 inputs = layers.Input(shape=dims)
 
-at = layers.Concatenate()([protocol, dstport, inputs])
-at = layers.TimeDistributed(layers.Dense(32), input_shape=(attention_window, len(columns)+dstport_embedding+protocol_embedding))(at)
+all_in = layers.Concatenate()([protocol, dstport, inputs])
+at = layers.TimeDistributed(layers.Dense(32), input_shape=(attention_window, len(columns)+dstport_embedding+protocol_embedding))(all_in)
 at = layers.TimeDistributed(layers.BatchNormalization())(at)
 at = layers.Activation("relu")(at)
 
@@ -57,9 +57,11 @@ at = layers.Activation("relu")(at)
 at = layers.TimeDistributed(layers.Dense(1))(at)
 at = layers.Activation("relu")(at)
 
-
-# at = am.WeightedAverageAttention()([at, inputs])
-at = am.WeightedAttention()([at, inputs])
+at = layers.Flatten()(at)
+at = layers.Dense(2)(at)
+at = am.LuongAttention(2, 0.5, attention_window)([at, all_in])
+# at = am.WeightedAverageAttention()([at, all_in])
+# at = am.WeightedAttention(scale_fac=8)([at, all_in])
 at = layers.Flatten()(at)
 at = layers.Activation("relu")(at)
 
