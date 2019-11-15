@@ -36,3 +36,25 @@ def cust_accuracy(y_true, y_pred):
     correct = tf.cast(correct, tf.float32)
     return tf.math.reduce_mean(correct)
 
+class MinmaxDenorm(tf.keras.layers.Layer):
+    def __init__(self, minmaxes, **kwargs):
+        self.mins = minmaxes[:, 0]
+        self.col_ranges = minmaxes[:, 1] - self.mins
+        super().__init__(**kwargs)
+
+    def build(self, input_shape):
+        super().build(input_shape)
+
+    def call(self, inputs):
+        return inputs*self.col_ranges + self.mins
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
+    def get_config(self):
+        base_config = super().get_config()
+        return base_config
+        
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)

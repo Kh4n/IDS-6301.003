@@ -114,3 +114,4 @@ combined_val
 tensorflow-cpu
 tensorflow-gpu
 logs*
+OUT
