@@ -32,7 +32,7 @@ def main():
     print('finished data split')
     #X_train.fillna(X_train.mean(), inplace=True)
     #X_train.dropna(inplace=True)
-    KNN = KNeighborsClassifier(n_neighbors=6) #label = majority class from nearest 6 points
+    KNN = KNeighborsClassifier(n_neighbors=19) #label = majority class from nearest 19 points
     KNN.fit(X_train,y_train)
     y_pred = KNN.predict(X_test)
     confusionMatrix = confusion_matrix(y_test, y_pred)
@@ -60,12 +60,12 @@ def main():
     plt.title(all_sample_title, size = 15)
 
 
-    featureDict = dict()
+    '''featureDict = dict()
     for i in range(len(df.columns)):
         featureDict.update({df.columns[i]:features[i]})
     print('\033[1m'+'Features of Importance:'+'\033[0m')
     #print(featureDict)
-    print(sorted(featureDict.items(), key=lambda x: x[1], reverse=True))
+    print(sorted(featureDict.items(), key=lambda x: x[1], reverse=True))'''
 
 
 
