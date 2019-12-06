@@ -2,7 +2,7 @@ import numpy as np
 import datetime
 import h5py
 
-# REMEMBER TO SET NROWS ON LINE 98
+# REMEMBER TO SET NROWS ON LINE 15
 
 CSV_COMBINED = "/mnt/CSE-CIC-2018/Processed Traffic Data for ML Algorithms/combined.out"
 H5_COMBINED = "/mnt/CSE-CIC-2018/Processed Traffic Data for ML Algorithms/combined_2.hdf5"
