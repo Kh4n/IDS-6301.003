@@ -20,10 +20,6 @@ CSV_VALIDATION = paths[1]
 H5_COMBINED = "/mnt/CSE-CIC-2018/Processed Traffic Data for ML Algorithms/combined.hdf5"
 combined_h5 = h5py.File(H5_COMBINED, 'r')
 
-# links to combined train/val data (IF YOU GET ANY ERRORS REDOWNLOAD THE DATA):
-# https://drive.google.com/file/d/11yVYZgVJE2zgGkPPzuSOO06MqTNCRDVV/view?usp=sharing
-# https://drive.google.com/file/d/1ZjtGgooqZ0qRd_10MSy7Ds93aS3Z4v7p/view?usp=sharing
-
 dstport_embedding = 15
 protocol_embedding = 3
 columns = list(range(3,79))
